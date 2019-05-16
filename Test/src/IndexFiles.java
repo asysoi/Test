@@ -1,10 +1,14 @@
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -13,6 +17,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
+import java.util.UUID;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -46,14 +51,14 @@ public class IndexFiles {
 		Boolean create = true;
 		
 		try {
-		   String docsPath = "C:\\Asysoi\\Делопроизводство\\2015";
+		   String docsPath = "C:\\Asysoi\\Делопроизводство";
 		   IndexFiles.build(indexPath, docsPath, create);
 		} catch (Exception e) {
 			System.out.println(" Build " + e.getClass() + "\n with message: " + e.getMessage());
 		}
 		
 		try {
-			SearchFiles.search(indexPath, "черному");
+			SearchFiles.search(indexPath, "кодовой");
 		} catch (Exception e) {
 			System.out.println(" Search " + e.getClass() + "\n with message: " + e.getMessage());
 		}
@@ -75,10 +80,10 @@ public class IndexFiles {
 				iwc.setOpenMode(OpenMode.CREATE_OR_APPEND);
 			}
 
-			//iwc.setRAMBufferSizeMB(256.0);
+			iwc.setRAMBufferSizeMB(256.0);
 			IndexWriter writer = new IndexWriter(dir, iwc);
 			indexDocs(writer, docDir);
-			// writer.forceMerge(1);
+			writer.forceMerge(1);
 			writer.close();
 
 			Date end = new Date();
@@ -130,10 +135,12 @@ public class IndexFiles {
 			Field pathField = new StringField("path", file.toString(), Field.Store.YES);
 			doc.add(pathField);
 			doc.add(new LongPoint("modified", lastModified));
-
-			doc.add(new TextField("contents",
+			Field ID = new StringField("ID", new UUID(lastModified, lastModified).toString(), Field.Store.YES);
+            doc.add(ID);
+			doc.add(new TextField("contents", 
+					// parseToPlainText(file), Field.Store.NO));
 					new BufferedReader(new StringReader(parseToPlainText(file)))));
-					// new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))));
+					// new BufferedReader(new InputStreamReader(stream, StandardCharsets.windows_1251))));
 
 			if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
 				System.out.println("adding " + file);
@@ -147,37 +154,53 @@ public class IndexFiles {
 		}
 	}
 
-	public static String parseToPlainText(Path file)  {
-	    BodyContentHandler handler = new BodyContentHandler();
-	    AutoDetectParser parser = new AutoDetectParser();
-	    Metadata metadata = new Metadata();
-	    ParseContext context = new ParseContext();
-	    
-	    try {
-	    	String chs = guessEncoding(file);	    	
-	    	InputStream stream = Files.newInputStream(file);
-	        parser.parse(stream, handler, metadata, context);
-	        
-	        /* String[] metadataNames = metadata.names();
-			for (String name : metadataNames) {
-			   System.out.println(name + ": " + metadata.get(name));
-			}*/
-	        if  (handler.toString().length() == 0 ) {
-		        System.out.println("Content lenght: " + handler.toString().length());
-		        System.out.println("Charset: " + chs);
-	        }
-		    //System.out.println("Content: " + handler.toString().substring(0, 10));
-	    } catch (Exception e) {
+	public static String parseToPlainText(Path file) {
+		BodyContentHandler handler = new BodyContentHandler();
+		AutoDetectParser parser = new AutoDetectParser();
+		Metadata metadata = new Metadata();
+		ParseContext context = new ParseContext();
+
+		try {
+			String chs = getCharset(file);
+
+			if ("windows-1251".equals(chs) || chs.indexOf("8859") != -1 ) {
+				BufferedReader reader = 
+					new BufferedReader(new InputStreamReader(Files.newInputStream(file), chs));
+				String str = null;
+				StringBuilder sb = new StringBuilder();
+				while( (str = reader.readLine()) != null) {
+					sb.append(str);
+				}
+				System.out.println(sb.toString());
+				return sb.toString();
+			} else {
+				InputStream stream = Files.newInputStream(file);
+				parser.parse(stream, handler, metadata, context);
+
+				/*
+				 * String[] metadataNames = metadata.names(); for (String name :
+				 * metadataNames) { System.out.println(name + ": " +
+				 * metadata.get(name)); }
+				 */
+				if (handler.toString().length() == 0) {
+					System.out.println("Content lenght: " + handler.toString().length());
+					System.out.println("Charset: " + chs);
+				}
+				// System.out.println("Content: " +
+				// handler.toString().substring(0, 10));
+				return handler.toString();
+			}
+		} catch (Exception e) {
 			System.out.println("Exception: " + e.getLocalizedMessage());
-	    }
-	    return handler.toString();
+		}
+        return "";
 	}
 	
-	public static String guessEncoding(Path file) throws IOException {
-		  CharsetDetector charsetDetector=new CharsetDetector();
+	public static String getCharset(Path file) throws IOException {
+		  CharsetDetector charsetDetector = new CharsetDetector();
 		  charsetDetector.setText( new BufferedInputStream(Files.newInputStream(file)));
 		  charsetDetector.enableInputFilter(true);
-		  CharsetMatch cm=charsetDetector.detect();
+		  CharsetMatch cm = charsetDetector.detect();
 		  return cm.getName();
 	}
 	

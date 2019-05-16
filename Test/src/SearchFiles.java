@@ -28,20 +28,13 @@ public class SearchFiles {
 		IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(index)));
 		IndexSearcher searcher = new IndexSearcher(reader);
 		Analyzer analyzer = new StandardAnalyzer();
-
-		BufferedReader in = null;
-		if (queries != null) {
-			in = Files.newBufferedReader(Paths.get(queries), StandardCharsets.UTF_8);
-		} else {
-			in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
-		}
 		QueryParser parser = new QueryParser(field, analyzer);
 		
 		while (true) {
 			Query query = parser.parse(queryString);
 			System.out.println("Searching for: " + query.toString(field));
 			searcher.search(query, 100);
-			doPagingSearch(in, searcher, query, hitsPerPage, raw, queries == null && queryString == null);
+			doPagingSearch(searcher, query, hitsPerPage, raw, queries == null && queryString == null);
 
 			if (queryString != null) {
 				break;
@@ -50,7 +43,7 @@ public class SearchFiles {
 		reader.close();
 	}
 
-	public static void doPagingSearch(BufferedReader in, IndexSearcher searcher, Query query, int hitsPerPage,
+	public static void doPagingSearch(IndexSearcher searcher, Query query, int hitsPerPage,
 			boolean raw, boolean interactive) throws IOException {
 
 		TopDocs results = searcher.search(query, 5 * hitsPerPage);
@@ -73,6 +66,7 @@ public class SearchFiles {
 
 				Document doc = searcher.doc(hits[i].doc);
 				String path = doc.get("path");
+				String id = doc.get("ID");
 				if (path != null) {
 					System.out.println((i + 1) + ". " + path);
 					//System.out.println("   Title: " + doc.get("title"));
