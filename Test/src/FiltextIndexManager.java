@@ -68,19 +68,28 @@ public class FiltextIndexManager {
 		String selectTableSQL = "SELECT * from C_PRODUCT_DENORM";
 
 		try {
-			imng.search(indexPath, "спички");
-              
-			/*dbConnection = getDBConnection();
+			imng.search(indexPath, "чул*");
+			dbConnection = getDBConnection();
 			statement = dbConnection.createStatement();
 			ResultSet rs = statement.executeQuery(selectTableSQL);
             int i=1;
+            int page = 1;
+            Map batch = new HashMap();
             
 			while (rs.next()) {
+				
 				String id = rs.getString("CERT_ID");
 				String content = rs.getString("TOVAR");
-				imng.textAddOrUpdateToIndex(indexPath, id, content, false);
 				System.out.println((i++) + ". " + id);
-			}*/
+				batch.put(id, content);
+				
+				if (page++ == 1000) {
+					imng.textAddOrUpdateToIndex(indexPath, batch, false);
+					batch.clear();
+					page = 1;
+				}
+				
+			}
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
 		} catch (Exception e) {
@@ -94,6 +103,7 @@ public class FiltextIndexManager {
 			}
 		}
 	}
+	
 	
 	private static Connection getDBConnection() {
 		Connection dbConnection = null;
@@ -113,6 +123,36 @@ public class FiltextIndexManager {
 		return dbConnection;
 	}
 	
+	
+	private void textAddOrUpdateToIndex(String indexPath, Map batch, Boolean create) throws Exception {
+		try {
+			Long start = System.currentTimeMillis();
+			Directory dir = FSDirectory.open(Paths.get(indexPath));
+			Analyzer analyzer = new StandardAnalyzer();
+			IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+			iwc.setOpenMode(create ? OpenMode.CREATE : OpenMode.CREATE_OR_APPEND);
+			iwc.setRAMBufferSizeMB(256.0);
+
+			IndexWriter writer = new IndexWriter(dir, iwc);
+			Document doc = new Document();
+			Set<String> ids = batch.keySet();
+
+			for (String id : ids) {
+				doc.add(new StringField("id", id, Field.Store.YES));
+				doc.add(new TextField("content", (String) batch.get(id), Field.Store.NO));
+				if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
+					writer.addDocument(doc);
+				} else {
+					writer.updateDocument(new Term("id", id), doc);
+				}
+			}
+			// writer.forceMerge(1);
+			writer.close();
+			System.out.println("Duration: " + (System.currentTimeMillis() - start));
+		} catch (Exception e) {
+			System.out.println(" caught a " + e.getClass() + "\n with message: " + e.getMessage());
+		}
+	}
 	
 	public static void test(String[] args) {
 		String indexPath = "c:\\java\\tmp\\index";
@@ -152,7 +192,7 @@ public class FiltextIndexManager {
 			} else {
 				writer.updateDocument(new Term("id", id), doc);
 			}
-			writer.forceMerge(1);			
+			//writer.forceMerge(1);			
 			writer.close();
 		} catch (Exception e) {
 			System.out.println(" caught a " + e.getClass() + "\n with message: " + e.getMessage());
