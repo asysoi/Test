@@ -16,6 +16,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,13 +63,16 @@ public class FiltextIndexManager {
 	public static void main(String[] str) throws SQLException {
 		String indexPath = "c:\\java\\tmp\\index";
 		FiltextIndexManager imng = new FiltextIndexManager();
+	
 		Connection dbConnection = null;
 		Statement statement = null;
 
 		String selectTableSQL = "SELECT * from C_PRODUCT_DENORM";
 
 		try {
-			imng.search(indexPath, "спички*"); 
+			imng.textAddOrUpdateToIndex(indexPath, "0", "Init index", true);
+			imng.search(indexPath, "спички*");
+			
 			dbConnection = getDBConnection();
 			statement = dbConnection.createStatement();
 			ResultSet rs = statement.executeQuery(selectTableSQL);
@@ -84,7 +88,7 @@ public class FiltextIndexManager {
 				batch.put(id, content);
 				
 				if (page++ == 1000) {
-					System.out.println((i++) + ". " + id);
+					System.out.print((i++) + ". ");
 					imng.textAddOrUpdateToIndex(indexPath, batch, false);
 					batch.clear();
 					page = 1;
@@ -144,9 +148,7 @@ public class FiltextIndexManager {
 				if (batch.get(id) != null) {
 					doc.add(new StringField("id", id, Field.Store.YES));
 					doc.add(new TextField("content", (String) batch.get(id), Field.Store.NO));
-					// System.out.println("id: " + id + " content: " + ((String)
-					// batch.get(id)).length());
-
+					
 					if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
 						writer.addDocument(doc);
 					} else {
@@ -160,7 +162,7 @@ public class FiltextIndexManager {
 		} finally {
 		   if (writer != null) writer.close();
 		}
-		System.out.println("Duration: " + (System.currentTimeMillis() - start));
+		System.out.println(new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date())+ " - " + (System.currentTimeMillis() - start));
 	}
 	
 	public static void test(String[] args) {
