@@ -68,7 +68,7 @@ public class FiltextIndexManager {
 		String selectTableSQL = "SELECT * from C_PRODUCT_DENORM";
 
 		try {
-			imng.search(indexPath, "чул*");
+			imng.search(indexPath, "спички*"); 
 			dbConnection = getDBConnection();
 			statement = dbConnection.createStatement();
 			ResultSet rs = statement.executeQuery(selectTableSQL);
@@ -80,10 +80,11 @@ public class FiltextIndexManager {
 				
 				String id = rs.getString("CERT_ID");
 				String content = rs.getString("TOVAR");
-				System.out.println((i++) + ". " + id);
+				// System.out.println((i++) + ". " + id);
 				batch.put(id, content);
 				
 				if (page++ == 1000) {
+					System.out.println((i++) + ". " + id);
 					imng.textAddOrUpdateToIndex(indexPath, batch, false);
 					batch.clear();
 					page = 1;
@@ -125,33 +126,41 @@ public class FiltextIndexManager {
 	
 	
 	private void textAddOrUpdateToIndex(String indexPath, Map batch, Boolean create) throws Exception {
+		IndexWriter writer = null;
+		Long start = System.currentTimeMillis();		
+
 		try {
-			Long start = System.currentTimeMillis();
 			Directory dir = FSDirectory.open(Paths.get(indexPath));
 			Analyzer analyzer = new StandardAnalyzer();
 			IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
 			iwc.setOpenMode(create ? OpenMode.CREATE : OpenMode.CREATE_OR_APPEND);
 			iwc.setRAMBufferSizeMB(256.0);
 
-			IndexWriter writer = new IndexWriter(dir, iwc);
+			writer = new IndexWriter(dir, iwc);
 			Document doc = new Document();
 			Set<String> ids = batch.keySet();
 
 			for (String id : ids) {
-				doc.add(new StringField("id", id, Field.Store.YES));
-				doc.add(new TextField("content", (String) batch.get(id), Field.Store.NO));
-				if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
-					writer.addDocument(doc);
-				} else {
-					writer.updateDocument(new Term("id", id), doc);
+				if (batch.get(id) != null) {
+					doc.add(new StringField("id", id, Field.Store.YES));
+					doc.add(new TextField("content", (String) batch.get(id), Field.Store.NO));
+					// System.out.println("id: " + id + " content: " + ((String)
+					// batch.get(id)).length());
+
+					if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
+						writer.addDocument(doc);
+					} else {
+						writer.updateDocument(new Term("id", id), doc);
+					}
 				}
 			}
 			// writer.forceMerge(1);
-			writer.close();
-			System.out.println("Duration: " + (System.currentTimeMillis() - start));
 		} catch (Exception e) {
 			System.out.println(" caught a " + e.getClass() + "\n with message: " + e.getMessage());
+		} finally {
+		   if (writer != null) writer.close();
 		}
+		System.out.println("Duration: " + (System.currentTimeMillis() - start));
 	}
 	
 	public static void test(String[] args) {
