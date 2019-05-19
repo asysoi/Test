@@ -56,12 +56,12 @@ public class FiltextIndexManager {
 	
 	private static final String DB_DRIVER = "oracle.jdbc.driver.OracleDriver";
 	//private static final String DB_CONNECTION = "jdbc:oracle:thin:@192.168.0.179:1521:orclpdb";
-	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//192.168.0.179:1521/orclpdb";
+	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//localhost:1521/pdborcl";
 	private static final String DB_USER = "beltpp";
 	private static final String DB_PASSWORD = "123456";
 	
 	public static void main(String[] str) throws SQLException {
-		String indexPath = "c:\\java\\tmp\\index";
+		String indexPath = "d:\\index";
 		FiltextIndexManager imng = new FiltextIndexManager();
 	
 		Connection dbConnection = null;
@@ -70,9 +70,10 @@ public class FiltextIndexManager {
 		String selectTableSQL = "SELECT * from C_PRODUCT_DENORM";
 
 		try {
+			imng.search(indexPath, "спички");
+
+			// index
 			imng.textAddOrUpdateToIndex(indexPath, "0", "Init index", true);
-			imng.search(indexPath, "спички*");
-			
 			dbConnection = getDBConnection();
 			statement = dbConnection.createStatement();
 			ResultSet rs = statement.executeQuery(selectTableSQL);
@@ -87,13 +88,12 @@ public class FiltextIndexManager {
 				// System.out.println((i++) + ". " + id);
 				batch.put(id, content);
 				
-				if (page++ == 1000) {
+				if (page++ == 2000) {
 					System.out.print((i++) + ". ");
 					imng.textAddOrUpdateToIndex(indexPath, batch, false);
 					batch.clear();
 					page = 1;
 				}
-				
 			}
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
@@ -141,11 +141,11 @@ public class FiltextIndexManager {
 			iwc.setRAMBufferSizeMB(256.0);
 
 			writer = new IndexWriter(dir, iwc);
-			Document doc = new Document();
 			Set<String> ids = batch.keySet();
 
 			for (String id : ids) {
 				if (batch.get(id) != null) {
+					Document doc = new Document();
 					doc.add(new StringField("id", id, Field.Store.YES));
 					doc.add(new TextField("content", (String) batch.get(id), Field.Store.NO));
 					
@@ -395,29 +395,31 @@ public class FiltextIndexManager {
 		String queries = null;
 		boolean raw = false;
 		int hitsPerPage = 10;
-
+		
+		QueryParser parser = new QueryParser(field, new StandardAnalyzer());
+		Query query = parser.parse(queryString);
+		System.out.println("Searching for: " + query.toString(field));
+		
 		IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(index)));
 		IndexSearcher searcher = new IndexSearcher(reader);
-		Analyzer analyzer = new StandardAnalyzer();
-		QueryParser parser = new QueryParser(field, analyzer);
-		
-		while (true) {
-			Query query = parser.parse(queryString);
-			System.out.println("Searching for: " + query.toString(field));
-			searcher.search(query, 100);
-			doPagingSearch(searcher, query, hitsPerPage, raw, queries == null && queryString == null);
+		TopDocs results = searcher.search(query, hitsPerPage);
+		ScoreDoc[] hits = results.scoreDocs;
 
-			if (queryString != null) {
-				break;
-			}
+		int numTotalHits = Math.toIntExact(results.totalHits.value);
+		System.out.println(numTotalHits + " total matching documents");
+		
+		for(int i=0; i<hitsPerPage && i < numTotalHits; ++i) {
+		    int docId = hits[i].doc;
+		    Document d = searcher.doc(docId);
+		    System.out.println((i + 1) + ". " +  d.get("id") + " | " + d.get("content"));
 		}
-		reader.close();
+		if (reader != null)
+			reader.close();
 	}
 
 	public static void doPagingSearch(IndexSearcher searcher, Query query, int hitsPerPage,
 			boolean raw, boolean interactive) throws IOException {
-
-		TopDocs results = searcher.search(query, 5 * hitsPerPage);
+		TopDocs results = searcher.search(query, hitsPerPage);
 		ScoreDoc[] hits = results.scoreDocs;
 
 		int numTotalHits = Math.toIntExact(results.totalHits.value);
@@ -432,7 +434,7 @@ public class FiltextIndexManager {
 			for (int i = start; i < end; i++) {
 				if (raw) { // output raw format
 					System.out.println("doc=" + hits[i].doc + " score=" + hits[i].score);
-					continue;
+					//continue;
 				}
 
 				Document doc = searcher.doc(hits[i].doc);
@@ -451,5 +453,6 @@ public class FiltextIndexManager {
 				break;
 			}
 		}
+
 	}
 }
