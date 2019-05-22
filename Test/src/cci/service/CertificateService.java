@@ -1,6 +1,8 @@
 package cci.service;
 
 import java.util.List;
+
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import cci.model.cert.Certificate;
 import cci.model.cert.Product;
@@ -8,13 +10,14 @@ import cci.repository.CertificateRepository;
 import cci.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@Service
+@Component
 public class CertificateService implements ICertificateService {
 
 	@Autowired
-	private CertificateRepository certRepository;
-	@Autowired
 	private ProductRepository productRepository;
+	
+	@Autowired
+	private CertificateRepository certRepository;
 	
 	@Override
 	public Certificate getByID(long id) {

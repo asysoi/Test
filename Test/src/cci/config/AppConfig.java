@@ -1,49 +1,74 @@
 package cci.config;
 
-import org.hibernate.ejb.HibernatePersistence;
+import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import java.util.Properties;
 
 @Configuration
 @EnableTransactionManagement
 @ComponentScan("cci.model.cert")
+@ComponentScan("cci.service")
+@EnableJpaRepositories
+
 public class AppConfig {
 
     private static final String PROPERTY_NAME_DATABASE_DRIVER = "oracle.jdbc.driver.OracleDriver";
-    private static final String PROPERTY_NAME_DATABASE_URL = "jdbc:oracle:thin:@//192.168.0.179:1521/orclpdb";
+    private static final String PROPERTY_NAME_DATABASE_URL = "jdbc:oracle:thin:@//localhost:1521/pdborcl";
     private static final String PROPERTY_NAME_DATABASE_USERNAME = "beltpp";
     private static final String PROPERTY_NAME_DATABASE_PASSWORD = "123456";
 
-    private static final String PROPERTY_NAME_HIBERNATE_DIALECT = "org.hibernate.dialect.Oracle";
+    private static final String PROPERTY_NAME_HIBERNATE_DIALECT = "org.hibernate.dialect.Oracle12cDialect";
     private static final String PROPERTY_NAME_HIBERNATE_SHOW_SQL = "true";
-    private static final String PROPERTY_NAME_ENTITYMANAGER_PACKAGES_TO_SCAN = "com.model.cert";
+    private static final String PROPERTY_NAME_ENTITYMANAGER_PACKAGES_TO_SCAN = "cci.repository";
     private static final String PROPERTY_NAME_HIBERNATE_HBM2DDL_AUTO = "create-drop";
 
     @Bean
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
-        LocalContainerEntityManagerFactoryBean entityManagerFactoryBean = new LocalContainerEntityManagerFactoryBean();
+    public LocalContainerEntityManagerFactoryBean _entityManagerFactory() {
+        LocalContainerEntityManagerFactoryBean entityManagerFactoryBean = 
+        		new LocalContainerEntityManagerFactoryBean();
         entityManagerFactoryBean.setDataSource(dataSource());
-        entityManagerFactoryBean.setPersistenceProviderClass(HibernatePersistence.class);
+        entityManagerFactoryBean.setPersistenceProviderClass(HibernatePersistenceProvider.class);
         entityManagerFactoryBean.setPackagesToScan(PROPERTY_NAME_ENTITYMANAGER_PACKAGES_TO_SCAN);
 
         entityManagerFactoryBean.setJpaProperties(hibernateProp());
-
+        
+        System.out.println("EMF = " + entityManagerFactoryBean.toString());
         return entityManagerFactoryBean;
     }
+    
+    @Bean
+    public EntityManagerFactory entityManagerFactory() {
+      HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+      vendorAdapter.setGenerateDdl(true);
 
+      LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
+      factory.setJpaVendorAdapter(vendorAdapter);
+      factory.setPackagesToScan("cci.repository");
+      factory.setDataSource(dataSource());
+      factory.afterPropertiesSet();
+
+      return factory.getObject();
+    }
+    
     @Bean
     public JpaTransactionManager transactionManager() {
-        JpaTransactionManager transactionManager = new JpaTransactionManager();
-        transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
-
+        JpaTransactionManager transactionManager = 
+        		new JpaTransactionManager();
+        // transactionManager.setEntityManagerFactory(entityManagerFactory() .getObject());
+        transactionManager.setEntityManagerFactory(entityManagerFactory());
+        System.out.println("TX = " + transactionManager.toString());
         return transactionManager;
     }
 
@@ -55,6 +80,7 @@ public class AppConfig {
         dataSource.setUrl(PROPERTY_NAME_DATABASE_URL);
         dataSource.setUsername(PROPERTY_NAME_DATABASE_USERNAME);
         dataSource.setPassword(PROPERTY_NAME_DATABASE_PASSWORD);
+        System.out.println("DS = " + dataSource.toString());
 
         return dataSource;
     }

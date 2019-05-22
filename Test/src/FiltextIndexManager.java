@@ -50,19 +50,22 @@ import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.txt.CharsetDetector;
 import org.apache.tika.parser.txt.CharsetMatch;
 import org.apache.tika.sax.BodyContentHandler;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.xml.sax.SAXException;
 
+import cci.config.AppConfig;
 import cci.test.JPATest;
 
 public class FiltextIndexManager {
 	
 	private static final String DB_DRIVER = "oracle.jdbc.driver.OracleDriver";
 	//private static final String DB_CONNECTION = "jdbc:oracle:thin:@192.168.0.179:1521:orclpdb";
-	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//192.168.0.179:1521/orclpdb";
+	private static final String DB_CONNECTION = "jdbc:oracle:thi n:@//localhost:1521/pdborcl";
 	private static final String DB_USER = "beltpp";
 	private static final String DB_PASSWORD = "123456";
 	
 	public static void main(String[] str) throws SQLException {
+		//String indexPath = "c:\\java\\tmp\\indcerts";
 		String indexPath = "c:\\java\\tmp\\index";
 		FiltextIndexManager imng = new FiltextIndexManager();
 	
@@ -73,6 +76,11 @@ public class FiltextIndexManager {
 
 		try {
 			imng.search(indexPath, "лен*");
+			
+			AnnotationConfigApplicationContext ctx = 
+					new AnnotationConfigApplicationContext();
+            ctx.register(AppConfig.class);
+            ctx.refresh();
 			
 			JPATest test = new JPATest();
 			try {
@@ -181,7 +189,7 @@ public class FiltextIndexManager {
 		String field = "content";
 		String queries = null;
 		boolean raw = false;
-		int hitsPerPage = 20;
+		int hitsPerPage = 5;
 		int start = 4160;
 		
 		QueryParser parser = new QueryParser(field, new StandardAnalyzer());
