@@ -52,16 +52,18 @@ import org.apache.tika.parser.txt.CharsetMatch;
 import org.apache.tika.sax.BodyContentHandler;
 import org.xml.sax.SAXException;
 
+import cci.test.JPATest;
+
 public class FiltextIndexManager {
 	
 	private static final String DB_DRIVER = "oracle.jdbc.driver.OracleDriver";
 	//private static final String DB_CONNECTION = "jdbc:oracle:thin:@192.168.0.179:1521:orclpdb";
-	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//localhost:1521/pdborcl";
+	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//192.168.0.179:1521/orclpdb";
 	private static final String DB_USER = "beltpp";
 	private static final String DB_PASSWORD = "123456";
 	
 	public static void main(String[] str) throws SQLException {
-		String indexPath = "d:\\index";
+		String indexPath = "c:\\java\\tmp\\index";
 		FiltextIndexManager imng = new FiltextIndexManager();
 	
 		Connection dbConnection = null;
@@ -70,15 +72,25 @@ public class FiltextIndexManager {
 		String selectTableSQL = "SELECT * from C_PRODUCT_DENORM";
 
 		try {
-			imng.search(indexPath, "спички");
-
-			// index
+			imng.search(indexPath, "лен*");
+			
+			JPATest test = new JPATest();
+			try {
+				test.setUp();
+				test.testGetCertificates();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			
+			
+			/*// index
 			imng.textAddOrUpdateToIndex(indexPath, "0", "Init index", true);
 			dbConnection = getDBConnection();
 			statement = dbConnection.createStatement();
 			ResultSet rs = statement.executeQuery(selectTableSQL);
             int i=1;
             int page = 1;
+            int pageLimit = 1000;
             Map batch = new HashMap();
             
 			while (rs.next()) {
@@ -88,13 +100,13 @@ public class FiltextIndexManager {
 				// System.out.println((i++) + ". " + id);
 				batch.put(id, content);
 				
-				if (page++ == 2000) {
+				if (page++ == pageLimit) {
 					System.out.print((i++) + ". ");
 					imng.textAddOrUpdateToIndex(indexPath, batch, false);
 					batch.clear();
 					page = 1;
 				}
-			}
+			}*/
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
 		} catch (Exception e) {
@@ -165,25 +177,75 @@ public class FiltextIndexManager {
 		System.out.println(new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date())+ " - " + (System.currentTimeMillis() - start));
 	}
 	
-	public static void test(String[] args) {
-		String indexPath = "c:\\java\\tmp\\index";
+	public void search(String index, String queryString) throws Exception {
+		String field = "content";
+		String queries = null;
+		boolean raw = false;
+		int hitsPerPage = 20;
+		int start = 4160;
 		
-		FiltextIndexManager imng = new FiltextIndexManager();
-		try {
-		   String docsPath = "C:\\Asysoi\\";
-		   //String id = new UUID(System.currentTimeMillis(), System.currentTimeMillis()).toString();
-		   // imng.textAddOrUpdateToIndex(indexPath, id, content, false);
-		   // imng.filesAddOrUpdateToIndex(indexPath, docsPath, createOrUpdate);
-		} catch (Exception e) {
-			System.out.println(" Build " + e.getClass() + "\n with message: " + e.getMessage());
-		}
+		QueryParser parser = new QueryParser(field, new StandardAnalyzer());
+		Query query = parser.parse(queryString);
+		System.out.println("Searching for: " + query.toString(field));
 		
-		try {
-			imng.search(indexPath, "добавленная");
-		} catch (Exception e) {
-			System.out.println(" Search " + e.getClass() + "\n with message: " + e.getMessage());
+		IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(index)));
+		IndexSearcher searcher = new IndexSearcher(reader);
+		//TopDocs results = searcher.search(query, hitsPerPage);
+		TopDocs results = searcher.search(query, start + hitsPerPage); 
+		ScoreDoc[] hits = results.scoreDocs;
+
+		int numTotalHits = Math.toIntExact(results.totalHits.value);
+		System.out.println(numTotalHits + " total matching documents");
+		
+		for(int i=start; i<start+hitsPerPage && i < numTotalHits; ++i) {
+		    int docId = hits[i].doc;
+		    Document d = searcher.doc(docId);
+		    System.out.println((i + 1) + ". " +  d.get("id") + " | " + d.get("content"));
 		}
+		if (reader != null)
+			reader.close();
 	}
+
+	public static void doPagingSearch(IndexSearcher searcher, Query query, int hitsPerPage,
+			boolean raw, boolean interactive) throws IOException {
+		TopDocs results = searcher.search(query, hitsPerPage);
+		ScoreDoc[] hits = results.scoreDocs;
+
+		int numTotalHits = Math.toIntExact(results.totalHits.value);
+		System.out.println(numTotalHits + " total matching documents");
+
+		int start = 0;
+		int end = Math.min(numTotalHits, hitsPerPage);
+
+		while (true) {
+			end = Math.min(hits.length, start + hitsPerPage);
+
+			for (int i = start; i < end; i++) {
+				if (raw) { // output raw format
+					System.out.println("doc=" + hits[i].doc + " score=" + hits[i].score);
+					//continue;
+				}
+
+				Document doc = searcher.doc(hits[i].doc);
+				String id = doc.get("id");
+				
+				if (id != null) {
+					System.out.println((i + 1) + ". " + id);
+					// System.out.println("   Cpontent: " + doc.get("content"));
+					// System.out.println("   Text: " + doc.get("contents"));
+				} else {
+					System.out.println((i + 1) + ". " + "No ID for this document");
+				}
+			}
+
+			if (!interactive || end == 0) {
+				break;
+			}
+		}
+
+	}
+	
+	
 	
 	private void textAddOrUpdateToIndex(String indexPath, String id, String content, Boolean create) throws Exception {
 		try {
@@ -390,69 +452,5 @@ public class FiltextIndexManager {
       return filecontent;
 	}
 		
-	public void search(String index, String queryString) throws Exception {
-		String field = "content";
-		String queries = null;
-		boolean raw = false;
-		int hitsPerPage = 10;
-		
-		QueryParser parser = new QueryParser(field, new StandardAnalyzer());
-		Query query = parser.parse(queryString);
-		System.out.println("Searching for: " + query.toString(field));
-		
-		IndexReader reader = DirectoryReader.open(FSDirectory.open(Paths.get(index)));
-		IndexSearcher searcher = new IndexSearcher(reader);
-		TopDocs results = searcher.search(query, hitsPerPage);
-		ScoreDoc[] hits = results.scoreDocs;
-
-		int numTotalHits = Math.toIntExact(results.totalHits.value);
-		System.out.println(numTotalHits + " total matching documents");
-		
-		for(int i=0; i<hitsPerPage && i < numTotalHits; ++i) {
-		    int docId = hits[i].doc;
-		    Document d = searcher.doc(docId);
-		    System.out.println((i + 1) + ". " +  d.get("id") + " | " + d.get("content"));
-		}
-		if (reader != null)
-			reader.close();
-	}
-
-	public static void doPagingSearch(IndexSearcher searcher, Query query, int hitsPerPage,
-			boolean raw, boolean interactive) throws IOException {
-		TopDocs results = searcher.search(query, hitsPerPage);
-		ScoreDoc[] hits = results.scoreDocs;
-
-		int numTotalHits = Math.toIntExact(results.totalHits.value);
-		System.out.println(numTotalHits + " total matching documents");
-
-		int start = 0;
-		int end = Math.min(numTotalHits, hitsPerPage);
-
-		while (true) {
-			end = Math.min(hits.length, start + hitsPerPage);
-
-			for (int i = start; i < end; i++) {
-				if (raw) { // output raw format
-					System.out.println("doc=" + hits[i].doc + " score=" + hits[i].score);
-					//continue;
-				}
-
-				Document doc = searcher.doc(hits[i].doc);
-				String id = doc.get("id");
-				
-				if (id != null) {
-					System.out.println((i + 1) + ". " + id);
-					// System.out.println("   Cpontent: " + doc.get("content"));
-					// System.out.println("   Text: " + doc.get("contents"));
-				} else {
-					System.out.println((i + 1) + ". " + "No ID for this document");
-				}
-			}
-
-			if (!interactive || end == 0) {
-				break;
-			}
-		}
-
-	}
+	
 }
