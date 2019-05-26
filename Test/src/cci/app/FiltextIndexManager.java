@@ -1,3 +1,4 @@
+package cci.app;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -19,9 +20,13 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+
+import javax.annotation.Resource;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -50,22 +55,35 @@ import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.txt.CharsetDetector;
 import org.apache.tika.parser.txt.CharsetMatch;
 import org.apache.tika.sax.BodyContentHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.xml.sax.SAXException;
 
 import cci.config.AppConfig;
+import cci.model.cert.Certificate;
+import cci.repository.CertificateRepository;
+import cci.repository.ProductRepository;
+import cci.service.CertificateService;
 import cci.test.JPATest;
 
 public class FiltextIndexManager {
 	
 	private static final String DB_DRIVER = "oracle.jdbc.driver.OracleDriver";
 	//private static final String DB_CONNECTION = "jdbc:oracle:thin:@192.168.0.179:1521:orclpdb";
-	private static final String DB_CONNECTION = "jdbc:oracle:thi n:@//localhost:1521/pdborcl";
+	private static final String DB_CONNECTION = "jdbc:oracle:thin:@//localhost:1521/pdborcl";
 	private static final String DB_USER = "beltpp";
 	private static final String DB_PASSWORD = "123456";
 	
+	@Autowired
+	private static ProductRepository productRepository;
+	
+	@Autowired
+	private static CertificateRepository certRepository;
+	    
 	public static void main(String[] str) throws SQLException {
+		//
 		//String indexPath = "c:\\java\\tmp\\indcerts";
+		//
 		String indexPath = "c:\\java\\tmp\\index";
 		FiltextIndexManager imng = new FiltextIndexManager();
 	
@@ -82,10 +100,9 @@ public class FiltextIndexManager {
             ctx.register(AppConfig.class);
             ctx.refresh();
 			
-			JPATest test = new JPATest();
 			try {
-				test.setUp();
-				test.testGetCertificates();
+		        List<Certificate> certs = certRepository.findAll();
+		        System.out.println(certs.size());
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}

@@ -13,6 +13,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Component
 public class CertificateService implements ICertificateService {
 
+	public CertificateService() {
+	    System.out.println("CertificateService inited = " + this.getClass());
+	    
+	}
+	
 	@Autowired
 	private ProductRepository productRepository;
 	

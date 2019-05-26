@@ -12,6 +12,6 @@ import cci.model.cert.Product;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 	
-	@Query("FROM c_product where cert_id = :cert_id order by product_id")
+	@Query(value = "select * from c_product where cert_id = :cert_id", nativeQuery = true)
 	List<Product> getProductsById(@Param("cert_id") Long cert_id);
 }

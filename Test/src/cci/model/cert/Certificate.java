@@ -4,7 +4,7 @@ import java.util.List;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-
+import javax.persistence.Transient;
 
 @Entity
 @Table(name = "c_cert")
@@ -50,6 +50,7 @@ public class Certificate {
 	private String otd_addr_building;
 	private String parentnumber = "";
 	private String parentstatus = "";
+	@Transient
 	private String tovar;
 	private String codestranav;
 	private String codestranapr;
@@ -58,13 +59,20 @@ public class Certificate {
 	private String eotd_name;
 	private String eotd_addr_city;
 	private String eotd_addr_line;
+	@Transient
 	private List<Product> products;
+	@Transient
 	private String childnumber = "";
+	@Transient
 	private Integer child_id = 0;
 	private Long parent_id;
+	@Transient
 	private ProductIterator iterator;
+	@Transient
 	private int cursor;
+	@Transient
 	private int currentlist;
+	@Transient
 	private String date_load;
 	
 	
